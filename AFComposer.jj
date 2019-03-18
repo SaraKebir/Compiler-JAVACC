@@ -1,0 +1,390 @@
+//----------------------------------------------- Options -----------------------------------------------
+options
+ {
+  IGNORE_CASE = true;
+ }
+
+//----------------------------------------------- Main Program -----------------------------------------------
+PARSER_BEGIN(AFComposer)
+import java.util.*;
+import java.io.*;
+import java.nio.file.*;
+public class AFComposer {
+
+  static AEF aef = new AEF("Automate_Etat_Fini");
+  static int num_Etat = 0;
+  static int e =0;
+  static String etat_Init="Etat 0";
+  static String etat_Final="Etat 0";
+
+  public static void main(String args[]) throws ParseException {
+  System.out.println("__________________________ AFComposer KEBIR Sara SIQ4 __________________________ \n");
+        try{
+                      File file = new File ("AFComposer.ihm");
+                       AFComposer parser = new AFComposer(new InputStreamReader(new FileInputStream(file)));
+                        new FileWriter("AFComposer_Composants.gui").close();
+
+               }
+               catch(Exception e){
+                 System.out.println("Fichier prog.ihm introuvable");
+               };
+             AFComposer.PROGRAMME();
+             aef.printTransitionTable("AFComposer_Automate_Etat_Fini.aef");
+	            }
+
+  }
+
+PARSER_END(AFComposer)
+
+
+//-----------------------------------------------  Tokens -----------------------------------------------
+SKIP :
+{
+  < SEPARATOR: " "
+| "\n"
+| "\t"
+| "\r"
+>
+}
+
+TOKEN :
+{
+    <DEBUT: "DEBUT">
+|   <INTERFACE: "INTERFACE">
+|   <COMP: "COMP">
+|   <PROP: "PROP">
+|   <INV: "INV">
+|   <EVT: "EVT" | "EVET">
+|   <INITIALISATIONS: "INITIALISATIONS">
+|   <ACTIONS: "ACTIONS">
+|   <FIN: "FIN">
+|	":="
+|	":"
+|	","
+|	"<>"
+|	"="
+|	"{"
+|	"}"
+|"."
+|<LOGIC:"AND"|"OR">
+|  < IF: "if">
+|  < THEN: "then" >
+|  < SEQUENCE: ";" >
+|  < ALTERNATIVE: "+" >
+|  < CHOIX: "~">
+|  < TYPECOMPOSANT: "Fenêtre" |"Fenetre" | "BoiteDialogue" | "Bouton" |"BoutonRadio" | "Panel" |
+                  "ChampsTexte" | "ComboBox" | "ListeDéroulante" | "CaseACocher"|"Icône" |"Icone" |"Menu"|"Caneva" >
+|  <EVENEMENT: "Click"|"DoubleClick"|"DbClick"|"ChrKeyPress"|"NumKeyPress"|"EntrerKeyPress"|"Drag"|"Drop"|"EnterPress" |"ClickBtFerm" | "ClickBtRed" | "ClickBtArg" |"ClickTitre">
+|  < NUM: (["0" - "9"])+ ("." (["0" - "9"])+)? >
+|  < BOOLEAN : "bool" | "Boolean" >
+|  < TRUE: "TRUE">
+|  < FALSE: "FALSE"  >
+|  < DEClARATIONTYPE:  "int" | "long" | "float" >
+|  < ID: ["a"-"z"] ( ["a"-"z","_","0"-"9"] )* >
+}
+
+
+//----------------------------------------------- Regles et actions -----------------------------------------------
+
+void PROGRAMME():
+{}
+{
+	<DEBUT>
+	Interface()
+	initialisations()
+  { aef.ajouter_Etat("Etat 0",false);}
+	Actions()
+	<FIN>
+	<EOF>
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Interface():
+{}
+{
+	<INTERFACE>
+	(
+		(<COMP> declaration()
+		(<PROP> (proposition())+)?
+		(<INV> (InitialisationLocale()))?
+		((<EVT>) (Evenements())+)?)
+	)*
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void declaration():
+{Token t1 ;Token t2;  String s1=new String(); String s2;}
+{
+	((t1=<ID>) ":" (t2=<TYPECOMPOSANT>) (s1=proprietaire())? (";")?)
+  {
+    s2='\n'+ t1.image +' ' + ':'+ ' ' + t2.image + s1 + '\n';
+    try{
+        Files.write(Paths.get("AFComposer_Composants.gui"), s2.getBytes(), StandardOpenOption.APPEND );
+        }
+        catch(Exception EX){
+        System.out.println("Erreur lors de l'ecriture de AFComposer_Composants.gui");
+        }
+  }
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+String proprietaire():
+{Token t = new Token();String s= new String();}
+{
+	("(" t=<ID> ")")
+  {
+    s="(" + t.image + ")";
+    return s;
+  }
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void proposition():
+{}
+{
+	(<ID> (","  <ID> )*((":"|"=")(propType()) (";")?))
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void propType():
+{}
+{
+  (ListeIDs() |<ID>|<DEClARATIONTYPE>|<BOOLEAN>)
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void ListeIDs():
+{}
+{
+	("{" <ID> ("," <ID>)* "}")
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void InitialisationLocale():
+{}
+{
+	(<ID> "=" Init_Type()(";")?)*
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Init_Type():
+{}
+{
+  (<ID> | <TRUE> | <FALSE> | <NUM>)
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Evenements():
+{Token t = new Token(); String s= new String();}
+{
+  (( (t=<EVENEMENT>)("(" <ID> ")")?) "{" ((Type_evenement()) (Suite_evenements())?)*"}"	(";")?)
+  {
+    s=t.image + '\n';
+    try{
+        Files.write(Paths.get("AFComposer_Composants.gui"), s.getBytes(), StandardOpenOption.APPEND );}
+        catch(Exception EX){
+        System.out.println("Erreur lors de l'ecriture de AFComposer_Composants.gui ");
+        }
+    }
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Type_evenement():
+{}
+{
+  Condition() | Affectation()
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Suite_evenements():
+{}
+{
+  <LOGIC> | ";"
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Condition():
+{}
+{
+  <IF> <ID> ("=" | "<>") Init_Type() <THEN> Affectation()
+}
+
+//------------------------------------------------------------------------------------------------------------------
+void Affectation():
+{}
+{
+  ( <ID> ("."<ID>)* (":=" Init_Type() (("+"|"-"|"*"|"/")("'"<ID>"'"|<NUM>))? | ("+"|"-"|"*"|"/")<NUM>))
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void initialisations():
+{}
+{
+	"INITIALISATIONS"
+	(initialisation())*
+}
+
+//------------------------------------------------------------------------------------------------------------------
+void initialisation():
+{}
+{
+	(<ID> "::" <ID> ":=" (Init_Type()) (";")?)
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Actions():
+{}
+{
+  "ACTIONS"
+  Succession_Action()
+  {
+   aef.setStateFinal(etat_Final);
+   }
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+AEF.Transition Succession_Action():
+{String nom_Trans,etat_Init_Local=etat_Init,etat_Final_Local=etat_Final,savedState=etat_Init;AEF.Transition trans,Resultat;}
+{
+  trans = Def_Action('!',savedState,etat_Final_Local)
+  {
+    if(trans!= null)
+    {
+       etat_Init = "Etat "+num_Etat;
+       etat_Init_Local= etat_Init;
+       num_Etat++;
+       etat_Final="Etat "+num_Etat;
+       nom_Trans = trans.evtName;
+       etat_Final_Local=etat_Final;
+       aef.ajouter_Etat(etat_Final,false);
+       aef.ajouter_Transition(new AEF.Transition(nom_Trans,etat_Init,etat_Final));
+    }
+    else{
+        nom_Trans=null;
+        }
+    Resultat = null;
+  }
+  Transition_Action(nom_Trans,etat_Init_Local,etat_Final_Local,savedState,trans,Resultat)
+  {
+  return Resultat;
+  }
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+void Transition_Action(String nom_Trans, String  etat_Init_Local, String etat_Final_Local, String savedState, AEF.Transition trans,AEF.Transition Resultat):
+{}
+{
+  (<ALTERNATIVE>
+  {
+    if(trans== null)
+    {
+      num_Etat++;
+      etat_Final="Etat "+num_Etat;
+      aef.ajouter_Etat(etat_Final,false);
+      aef.ajouter_Transition(new AEF.Transition("Epsilon",etat_Final_Local,etat_Final));
+      e++;
+      etat_Init_Local= etat_Init;
+      etat_Final_Local=etat_Final;
+      }
+  }
+  trans= Def_Action('+',savedState,etat_Final_Local)
+  {
+    if(trans!= null)
+      {
+       num_Etat++;
+       etat_Final="Etat "+num_Etat;
+       nom_Trans = trans.evtName;
+       etat_Final_Local = etat_Final;
+       aef.ajouter_Etat(etat_Final,false);
+       aef.ajouter_Transition(new AEF.Transition(nom_Trans,etat_Init,etat_Final));
+       }
+    }
+|
+<CHOIX> (trans = Def_Action('~',etat_Init_Local,etat_Final_Local))
+    {
+     if(trans!= null)
+       {
+          nom_Trans = trans.evtName;
+          aef.ajouter_Transition(new AEF.Transition(nom_Trans,etat_Init_Local,etat_Final_Local));
+       }
+       else
+       {
+         aef.ajouter_Transition(new AEF.Transition("Epsilon",etat_Final_Local,etat_Final));
+         e++;
+       }
+      }
+|
+<SEQUENCE> (trans = Def_Action(';',savedState,etat_Final_Local))
+  {
+  if(trans!= null)
+       {
+        etat_Init = etat_Final;
+        num_Etat++;
+        etat_Final="Etat "+num_Etat;
+        nom_Trans = trans.evtName;
+        etat_Init_Local= etat_Init;
+        etat_Final_Local=etat_Final;
+        aef.ajouter_Etat(etat_Final,false);
+        aef.ajouter_Transition(new AEF.Transition(nom_Trans,etat_Init,etat_Final));
+        }
+        }
+)*
+}
+
+//------------------------------------------------------------------------------------------------------------------
+
+AEF.Transition Def_Action(char c,String etat_Init_Local,String etat_Final_Local):
+{AEF.Transition Resultat=null ;Token t,id; AEF.Transition trans=null; String transitionName;}
+{
+  (
+  "{"
+    {
+      if(c=='~')
+       {
+        etat_Init = etat_Init_Local;
+        }
+        else
+        {
+         etat_Init = "Etat "+num_Etat;
+         }
+        num_Etat++;
+        etat_Final = "Etat "+num_Etat;
+        aef.ajouter_Etat(etat_Final,false);
+        aef.ajouter_Transition(new AEF.Transition("Epsilon",etat_Init,etat_Final));
+        e++;
+    }
+    Resultat = Succession_Action() "}"
+
+|
+
+  t = <EVENEMENT>
+  {
+   transitionName = t.image;
+   }
+"(" id = <ID>
+  {
+  transitionName += "(" + id.image + ")" ;
+  Resultat = new AEF.Transition(transitionName,t.toString(),"#");
+   }
+")"
+)*
+  {
+   return Resultat;
+   }
+}
